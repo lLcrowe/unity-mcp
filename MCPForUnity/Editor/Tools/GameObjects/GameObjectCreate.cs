@@ -102,7 +102,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                         {
                             newGo.name = name;
                         }
-                        Undo.RegisterCreatedObjectUndo(newGo, $"Instantiate Prefab '{prefabAsset.name}' as '{newGo.name}'");
+                        if (!EditorApplication.isPlaying)
+                            Undo.RegisterCreatedObjectUndo(newGo, $"Instantiate Prefab '{prefabAsset.name}' as '{newGo.name}'");
                         McpLog.Info($"[ManageGameObject.Create] Instantiated prefab '{prefabAsset.name}' from path '{prefabPath}' as '{newGo.name}'.");
                     }
                     catch (Exception e)
@@ -156,7 +157,7 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                     createdNewObject = true;
                 }
 
-                if (createdNewObject)
+                if (createdNewObject && !EditorApplication.isPlaying)
                 {
                     Undo.RegisterCreatedObjectUndo(newGo, $"Create GameObject '{newGo.name}'");
                 }
@@ -167,8 +168,11 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 return new ErrorResponse("Failed to create or instantiate the GameObject.");
             }
 
-            Undo.RecordObject(newGo.transform, "Set GameObject Transform");
-            Undo.RecordObject(newGo, "Set GameObject Properties");
+            if (!EditorApplication.isPlaying)
+            {
+                Undo.RecordObject(newGo.transform, "Set GameObject Transform");
+                Undo.RecordObject(newGo, "Set GameObject Properties");
+            }
 
             // Set Parent
             JToken parentToken = @params["parent"];

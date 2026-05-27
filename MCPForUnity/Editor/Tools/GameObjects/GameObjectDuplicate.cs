@@ -24,7 +24,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
             JToken parentToken = @params["parent"];
 
             GameObject duplicatedGo = UnityEngine.Object.Instantiate(sourceGo);
-            Undo.RegisterCreatedObjectUndo(duplicatedGo, $"Duplicate {sourceGo.name}");
+            if (!EditorApplication.isPlaying)
+                Undo.RegisterCreatedObjectUndo(duplicatedGo, $"Duplicate {sourceGo.name}");
 
             if (!string.IsNullOrEmpty(newName))
             {
@@ -68,8 +69,11 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 duplicatedGo.transform.SetParent(sourceGo.transform.parent, true);
             }
 
-            EditorUtility.SetDirty(duplicatedGo);
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            if (!EditorApplication.isPlaying)
+            {
+                EditorUtility.SetDirty(duplicatedGo);
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            }
 
             Selection.activeGameObject = duplicatedGo;
 

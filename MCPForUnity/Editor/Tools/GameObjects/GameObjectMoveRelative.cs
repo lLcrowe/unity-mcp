@@ -34,7 +34,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
             Vector3? customOffset = VectorParsing.ParseVector3(@params["offset"]);
             bool useWorldSpace = @params["world_space"]?.ToObject<bool>() ?? true;
 
-            Undo.RecordObject(targetGo.transform, $"Move {targetGo.name} relative to {referenceGo.name}");
+            if (!EditorApplication.isPlaying)
+                Undo.RecordObject(targetGo.transform, $"Move {targetGo.name} relative to {referenceGo.name}");
 
             Vector3 newPosition;
 
@@ -61,8 +62,11 @@ namespace MCPForUnity.Editor.Tools.GameObjects
 
             targetGo.transform.position = newPosition;
 
-            EditorUtility.SetDirty(targetGo);
-            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            if (!EditorApplication.isPlaying)
+            {
+                EditorUtility.SetDirty(targetGo);
+                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            }
 
             return new SuccessResponse(
                 $"Moved '{targetGo.name}' relative to '{referenceGo.name}'.",

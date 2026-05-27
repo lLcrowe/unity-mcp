@@ -29,8 +29,11 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 return new ErrorResponse($"Target GameObject ('{targetToken}') not found using method '{searchMethod ?? "default"}'.");
             }
 
-            Undo.RecordObject(targetGo.transform, "Modify GameObject Transform");
-            Undo.RecordObject(targetGo, "Modify GameObject Properties");
+            if (!EditorApplication.isPlaying)
+            {
+                Undo.RecordObject(targetGo.transform, "Modify GameObject Transform");
+                Undo.RecordObject(targetGo, "Modify GameObject Properties");
+            }
 
             bool modified = false;
 
@@ -288,17 +291,19 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 );
             }
 
-            EditorUtility.SetDirty(targetGo);
+            if (!EditorApplication.isPlaying)
+            {
+                EditorUtility.SetDirty(targetGo);
 
-            // Mark the appropriate scene as dirty (handles both regular scenes and prefab stages)
-            var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
-            if (prefabStage != null)
-            {
-                EditorSceneManager.MarkSceneDirty(prefabStage.scene);
-            }
-            else
-            {
-                EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+                var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+                if (prefabStage != null)
+                {
+                    EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+                }
+                else
+                {
+                    EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+                }
             }
 
             return new SuccessResponse(
