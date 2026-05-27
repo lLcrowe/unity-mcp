@@ -60,7 +60,9 @@ namespace MCPForUnity.Editor.Tools.GameObjects
 
             try
             {
-                Component newComponent = Undo.AddComponent(targetGo, componentType);
+                Component newComponent = EditorApplication.isPlaying
+                    ? targetGo.gameObject.AddComponent(componentType)
+                    : Undo.AddComponent(targetGo, componentType);
                 if (newComponent == null)
                 {
                     if (targetGo.GetComponent(componentType) != null && !AllowsMultiple(componentType))
@@ -85,7 +87,10 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                     var setResult = SetComponentPropertiesInternal(targetGo, typeName, properties, newComponent);
                     if (setResult != null)
                     {
-                        Undo.DestroyObjectImmediate(newComponent);
+                        if (EditorApplication.isPlaying)
+                            UnityEngine.Object.DestroyImmediate(newComponent);
+                        else
+                            Undo.DestroyObjectImmediate(newComponent);
                         return setResult;
                     }
                 }
@@ -134,7 +139,10 @@ namespace MCPForUnity.Editor.Tools.GameObjects
 
             try
             {
-                Undo.DestroyObjectImmediate(componentToRemove);
+                if (EditorApplication.isPlaying)
+                    UnityEngine.Object.DestroyImmediate(componentToRemove);
+                else
+                    Undo.DestroyObjectImmediate(componentToRemove);
                 return null;
             }
             catch (Exception e)
@@ -162,7 +170,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 return new ErrorResponse($"Component '{componentTypeName}' not found on '{targetGo.name}' to set properties.");
             }
 
-            Undo.RecordObject(targetComponent, "Set Component Properties");
+            if (!EditorApplication.isPlaying)
+                Undo.RecordObject(targetComponent, "Set Component Properties");
 
             var failures = new List<string>();
             foreach (var prop in properties.Properties())
@@ -209,7 +218,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
                 }
             }
 
-            EditorUtility.SetDirty(targetComponent);
+            if (!EditorApplication.isPlaying)
+                EditorUtility.SetDirty(targetComponent);
             return failures.Count == 0
                 ? null
                 : new ErrorResponse($"One or more properties failed on '{componentTypeName}'.", new { errors = failures });

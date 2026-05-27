@@ -45,7 +45,8 @@ namespace MCPForUnity.Editor.Tools.GameObjects
 
             Vector3 upVector = VectorParsing.ParseVector3OrDefault(@params["look_at_up"] ?? @params["lookAtUp"], Vector3.up);
 
-            Undo.RecordObject(targetGo.transform, $"LookAt {targetGo.name}");
+            if (!EditorApplication.isPlaying)
+                Undo.RecordObject(targetGo.transform, $"LookAt {targetGo.name}");
             targetGo.transform.LookAt(lookAtPos.Value, upVector);
 
             var euler = targetGo.transform.rotation.eulerAngles;
