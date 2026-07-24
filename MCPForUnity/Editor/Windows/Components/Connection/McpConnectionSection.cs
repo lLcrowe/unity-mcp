@@ -152,7 +152,7 @@ namespace MCPForUnity.Editor.Windows.Components.Connection
 
             // Set tooltips
             if (httpUrlField != null)
-                httpUrlField.tooltip = "HTTP endpoint URL for the MCP server. Use localhost for local servers.";
+                httpUrlField.tooltip = "Choose any local MCP URL/port. This project remembers your last choice.";
             if (unityPortField != null)
                 unityPortField.tooltip = "Port for Unity's internal MCP bridge socket. Used for stdio transport.";
             if (connectionToggleButton != null)

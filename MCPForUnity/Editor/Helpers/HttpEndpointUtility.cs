@@ -17,7 +17,7 @@ namespace MCPForUnity.Editor.Helpers
     /// </summary>
     public static class HttpEndpointUtility
     {
-        private const string LocalPrefKey = EditorPrefKeys.HttpBaseUrl;
+        private static string LocalPrefKey => EditorPrefKeys.HttpBaseUrl;
         private const string RemotePrefKey = EditorPrefKeys.HttpRemoteBaseUrl;
         private const string DefaultLocalBaseUrl = "http://127.0.0.1:8080";
         private const string DefaultRemoteBaseUrl = "";

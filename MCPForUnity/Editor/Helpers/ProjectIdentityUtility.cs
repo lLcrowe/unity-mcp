@@ -85,6 +85,21 @@ namespace MCPForUnity.Editor.Helpers
             return _cachedProjectName;
         }
 
+        /// <summary>
+        /// Returns an EditorPrefs key isolated to the current Unity project.
+        /// EditorPrefs is machine-wide, so connection and process-ownership keys must
+        /// include the project hash to avoid one open editor overwriting another.
+        /// </summary>
+        public static string GetProjectScopedEditorPrefKey(string baseKey)
+        {
+            if (string.IsNullOrWhiteSpace(baseKey))
+            {
+                throw new ArgumentException("EditorPrefs base key cannot be empty.", nameof(baseKey));
+            }
+
+            return $"{baseKey}_{GetProjectHash()}";
+        }
+
         private static string ComputeProjectHash(string dataPath)
         {
             try
@@ -140,8 +155,7 @@ namespace MCPForUnity.Editor.Helpers
             {
                 try
                 {
-                    string projectHash = GetProjectHash();
-                    string projectSpecificKey = $"{SessionPrefKey}_{projectHash}";
+                    string projectSpecificKey = GetProjectScopedEditorPrefKey(SessionPrefKey);
                     EditorPrefs.SetString(projectSpecificKey, sessionId);
                 }
                 catch (Exception ex)
@@ -159,9 +173,7 @@ namespace MCPForUnity.Editor.Helpers
         {
             try
             {
-                // Make the session ID project-specific by including the project hash in the key
-                string projectHash = GetProjectHash();
-                string projectSpecificKey = $"{SessionPrefKey}_{projectHash}";
+                string projectSpecificKey = GetProjectScopedEditorPrefKey(SessionPrefKey);
 
                 string sessionId = EditorPrefs.GetString(projectSpecificKey, string.Empty);
                 if (string.IsNullOrEmpty(sessionId))
@@ -190,9 +202,7 @@ namespace MCPForUnity.Editor.Helpers
         {
             try
             {
-                // Clear the project-specific session ID
-                string projectHash = GetProjectHash();
-                string projectSpecificKey = $"{SessionPrefKey}_{projectHash}";
+                string projectSpecificKey = GetProjectScopedEditorPrefKey(SessionPrefKey);
 
                 if (EditorPrefs.HasKey(projectSpecificKey))
                 {

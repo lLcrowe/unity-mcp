@@ -2,6 +2,7 @@ using System.IO;
 using NUnit.Framework;
 using MCPForUnity.Editor.Services.Server;
 using MCPForUnity.Editor.Constants;
+using MCPForUnity.Editor.Helpers;
 using UnityEditor;
 using UnityEngine;
 
@@ -44,6 +45,26 @@ namespace MCPForUnityTests.Editor.Services.Server
             try { EditorPrefs.DeleteKey(EditorPrefKeys.LastLocalHttpServerPidArgsHash); } catch { }
             try { EditorPrefs.DeleteKey(EditorPrefKeys.LastLocalHttpServerPidFilePath); } catch { }
             try { EditorPrefs.DeleteKey(EditorPrefKeys.LastLocalHttpServerInstanceToken); } catch { }
+        }
+
+        [Test]
+        public void TrackingEditorPrefKeys_AreScopedToCurrentProject()
+        {
+            string suffix = "_" + ProjectIdentityUtility.GetProjectHash();
+            string[] keys =
+            {
+                EditorPrefKeys.LastLocalHttpServerPid,
+                EditorPrefKeys.LastLocalHttpServerPort,
+                EditorPrefKeys.LastLocalHttpServerStartedUtc,
+                EditorPrefKeys.LastLocalHttpServerPidArgsHash,
+                EditorPrefKeys.LastLocalHttpServerPidFilePath,
+                EditorPrefKeys.LastLocalHttpServerInstanceToken,
+            };
+
+            foreach (string key in keys)
+            {
+                Assert.That(key, Does.EndWith(suffix));
+            }
         }
 
         #region GetPidFilePath Tests

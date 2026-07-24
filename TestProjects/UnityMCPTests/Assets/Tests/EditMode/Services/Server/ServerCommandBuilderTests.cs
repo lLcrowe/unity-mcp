@@ -256,11 +256,12 @@ namespace MCPForUnityTests.Editor.Services.Server
         }
 
         [Test]
-        public void TryBuildCommand_LocalUrl_ReturnsCommandOrError()
+        public void TryBuildCommand_UserSelectedLocalPort_IsUsedWhenCommandIsAvailable()
         {
             // Arrange
+            string selectedUrl = "http://127.0.0.1:58127";
             EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, true);
-            EditorPrefs.SetString(EditorPrefKeys.HttpBaseUrl, "http://localhost:8080");
+            EditorPrefs.SetString(EditorPrefKeys.HttpBaseUrl, selectedUrl);
             EditorConfigurationCache.Instance.Refresh();
 
             // Act
@@ -274,6 +275,8 @@ namespace MCPForUnityTests.Editor.Services.Server
                 Assert.IsNotNull(displayCommand, "displayCommand should be set on success");
                 Assert.IsNull(error, "error should be null on success");
                 Assert.That(displayCommand, Does.Contain("uvx").Or.Contain("uv"));
+                Assert.That(arguments, Does.Contain($"--http-url {selectedUrl}"),
+                    "The server command must use the port selected in the Unity MCP window.");
             }
             else
             {

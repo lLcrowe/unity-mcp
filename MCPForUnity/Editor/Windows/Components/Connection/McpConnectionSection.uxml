@@ -15,7 +15,7 @@
             </ui:VisualElement>
             <ui:VisualElement class="setting-row" name="http-url-row">
                 <ui:Label text="HTTP URL:" class="setting-label" />
-                <ui:TextField name="http-url" class="url-field" />
+                <ui:TextField name="http-url" class="url-field" tooltip="Choose any local MCP URL/port. This project remembers your last choice." />
             </ui:VisualElement>
             <ui:VisualElement name="api-key-row" style="margin-bottom: 4px;">
                 <ui:VisualElement class="setting-row">

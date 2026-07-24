@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using MCPForUnity.Editor.Services;
 using MCPForUnity.Editor.Constants;
+using MCPForUnity.Editor.Helpers;
 using UnityEditor;
 
 namespace MCPForUnityTests.Editor.Services
@@ -14,6 +15,10 @@ namespace MCPForUnityTests.Editor.Services
         private bool _originalUseHttpTransport;
         private bool _originalDebugLogs;
         private string _originalUvxPath;
+        private bool _hadProjectHttpBaseUrl;
+        private string _originalProjectHttpBaseUrl;
+        private bool _hadLegacyHttpBaseUrl;
+        private string _originalLegacyHttpBaseUrl;
 
         [SetUp]
         public void SetUp()
@@ -22,6 +27,10 @@ namespace MCPForUnityTests.Editor.Services
             _originalUseHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
             _originalDebugLogs = EditorPrefs.GetBool(EditorPrefKeys.DebugLogs, false);
             _originalUvxPath = EditorPrefs.GetString(EditorPrefKeys.UvxPathOverride, string.Empty);
+            _hadProjectHttpBaseUrl = EditorPrefs.HasKey(EditorPrefKeys.HttpBaseUrl);
+            _originalProjectHttpBaseUrl = EditorPrefs.GetString(EditorPrefKeys.HttpBaseUrl, string.Empty);
+            _hadLegacyHttpBaseUrl = EditorPrefs.HasKey(EditorPrefKeys.LegacyHttpBaseUrl);
+            _originalLegacyHttpBaseUrl = EditorPrefs.GetString(EditorPrefKeys.LegacyHttpBaseUrl, string.Empty);
 
             // Refresh cache to ensure clean state
             EditorConfigurationCache.Instance.Refresh();
@@ -34,9 +43,23 @@ namespace MCPForUnityTests.Editor.Services
             EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, _originalUseHttpTransport);
             EditorPrefs.SetBool(EditorPrefKeys.DebugLogs, _originalDebugLogs);
             EditorPrefs.SetString(EditorPrefKeys.UvxPathOverride, _originalUvxPath);
+            RestoreStringPref(EditorPrefKeys.HttpBaseUrl, _hadProjectHttpBaseUrl, _originalProjectHttpBaseUrl);
+            RestoreStringPref(EditorPrefKeys.LegacyHttpBaseUrl, _hadLegacyHttpBaseUrl, _originalLegacyHttpBaseUrl);
 
             // Refresh cache
             EditorConfigurationCache.Instance.Refresh();
+        }
+
+        private static void RestoreStringPref(string key, bool existed, string value)
+        {
+            if (existed)
+            {
+                EditorPrefs.SetString(key, value);
+            }
+            else
+            {
+                EditorPrefs.DeleteKey(key);
+            }
         }
 
         #region Singleton Tests
@@ -102,6 +125,64 @@ namespace MCPForUnityTests.Editor.Services
 
             // Assert
             Assert.AreEqual(testPath, EditorConfigurationCache.Instance.UvxPathOverride);
+        }
+
+        [Test]
+        public void HttpBaseUrl_UsesCurrentProjectKeyAndIgnoresLegacyGlobalValue()
+        {
+            string projectUrl = "http://127.0.0.1:58123";
+            string legacyUrl = "http://127.0.0.1:58124";
+            EditorPrefs.SetString(EditorPrefKeys.LegacyHttpBaseUrl, legacyUrl);
+            EditorPrefs.SetString(EditorPrefKeys.HttpBaseUrl, projectUrl);
+
+            EditorConfigurationCache.Instance.Refresh();
+
+            Assert.AreEqual(projectUrl, EditorConfigurationCache.Instance.HttpBaseUrl);
+            Assert.AreNotEqual(EditorPrefKeys.LegacyHttpBaseUrl, EditorPrefKeys.HttpBaseUrl);
+            Assert.That(
+                EditorPrefKeys.HttpBaseUrl,
+                Does.EndWith("_" + ProjectIdentityUtility.GetProjectHash()));
+        }
+
+        [Test]
+        public void HttpBaseUrl_UserCanReplaceThePortChosenForCurrentProject()
+        {
+            string firstChoice = "http://127.0.0.1:58125";
+            string secondChoice = "http://127.0.0.1:58126";
+
+            HttpEndpointUtility.SaveLocalBaseUrl(firstChoice);
+            Assert.AreEqual(firstChoice, HttpEndpointUtility.GetLocalBaseUrl());
+
+            HttpEndpointUtility.SaveLocalBaseUrl(secondChoice);
+            EditorConfigurationCache.Instance.Refresh();
+
+            Assert.AreEqual(secondChoice, HttpEndpointUtility.GetLocalBaseUrl());
+            Assert.AreEqual(secondChoice, EditorConfigurationCache.Instance.HttpBaseUrl);
+        }
+
+        [Test]
+        public void HttpBaseUrl_SavingCurrentProjectDoesNotOverwriteAnotherProject()
+        {
+            string otherProjectKey = EditorPrefKeys.LegacyHttpBaseUrl + "_another-project";
+            string otherProjectUrl = "http://127.0.0.1:58128";
+            bool hadOtherProjectUrl = EditorPrefs.HasKey(otherProjectKey);
+            string originalOtherProjectUrl = EditorPrefs.GetString(otherProjectKey, string.Empty);
+
+            try
+            {
+                EditorPrefs.SetString(otherProjectKey, otherProjectUrl);
+
+                HttpEndpointUtility.SaveLocalBaseUrl("http://127.0.0.1:58129");
+
+                Assert.AreEqual(
+                    otherProjectUrl,
+                    EditorPrefs.GetString(otherProjectKey, string.Empty),
+                    "Saving this project's port must not mutate another project's URL.");
+            }
+            finally
+            {
+                RestoreStringPref(otherProjectKey, hadOtherProjectUrl, originalOtherProjectUrl);
+            }
         }
 
         #endregion

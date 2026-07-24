@@ -22,6 +22,8 @@ namespace MCPForUnityTests.Editor.Services
         private bool _savedConnectPending;
         private bool _savedResumeFlag;
         private bool _savedAutoStart;
+        private bool _hadLegacyAutoStart;
+        private bool _savedLegacyAutoStart;
         private bool _savedUseHttpTransport;
 
         [SetUp]
@@ -31,6 +33,8 @@ namespace MCPForUnityTests.Editor.Services
             _savedConnectPending = SessionState.GetBool(HttpAutoStartHandler.ConnectPendingKey, false);
             _savedResumeFlag = SessionState.GetBool(HttpBridgeReloadHandler.ResumeSessionKey, false);
             _savedAutoStart = EditorPrefs.GetBool(EditorPrefKeys.AutoStartOnLoad, false);
+            _hadLegacyAutoStart = EditorPrefs.HasKey(EditorPrefKeys.LegacyAutoStartOnLoad);
+            _savedLegacyAutoStart = EditorPrefs.GetBool(EditorPrefKeys.LegacyAutoStartOnLoad, false);
             _savedUseHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
             _savedManager = MCPServiceLocator.TransportManager;
 
@@ -55,6 +59,14 @@ namespace MCPForUnityTests.Editor.Services
             SessionState.SetBool(HttpAutoStartHandler.ConnectPendingKey, _savedConnectPending);
             SessionState.SetBool(HttpBridgeReloadHandler.ResumeSessionKey, _savedResumeFlag);
             EditorPrefs.SetBool(EditorPrefKeys.AutoStartOnLoad, _savedAutoStart);
+            if (_hadLegacyAutoStart)
+            {
+                EditorPrefs.SetBool(EditorPrefKeys.LegacyAutoStartOnLoad, _savedLegacyAutoStart);
+            }
+            else
+            {
+                EditorPrefs.DeleteKey(EditorPrefKeys.LegacyAutoStartOnLoad);
+            }
             EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, _savedUseHttpTransport);
             EditorConfigurationCache.Instance.Refresh();
             MCPServiceLocator.Register(_savedManager);
@@ -108,6 +120,18 @@ namespace MCPForUnityTests.Editor.Services
                 HttpAutoStartHandler.TickDecision.Skip,
                 HttpAutoStartHandler.TickCore(editorBusy: false));
             Assert.IsFalse(LatchSet, "no latch when disabled — the pref is re-read on the next domain load");
+        }
+
+        [Test]
+        public void TickCore_LegacyGlobalAutoStartEnabled_CurrentProjectStillSkips()
+        {
+            EditorPrefs.DeleteKey(EditorPrefKeys.AutoStartOnLoad);
+            EditorPrefs.SetBool(EditorPrefKeys.LegacyAutoStartOnLoad, true);
+
+            Assert.AreEqual(
+                HttpAutoStartHandler.TickDecision.Skip,
+                HttpAutoStartHandler.TickCore(editorBusy: false),
+                "a machine-global legacy toggle must not start every open Unity project");
         }
 
         [Test]

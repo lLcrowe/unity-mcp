@@ -1,3 +1,5 @@
+using MCPForUnity.Editor.Helpers;
+
 namespace MCPForUnity.Editor.Constants
 {
     /// <summary>
@@ -8,12 +10,22 @@ namespace MCPForUnity.Editor.Constants
     {
         internal const string UseHttpTransport = "MCPForUnity.UseHttpTransport";
         internal const string HttpTransportScope = "MCPForUnity.HttpTransportScope"; // "local" | "remote"
-        internal const string LastLocalHttpServerPid = "MCPForUnity.LocalHttpServer.LastPid";
-        internal const string LastLocalHttpServerPort = "MCPForUnity.LocalHttpServer.LastPort";
-        internal const string LastLocalHttpServerStartedUtc = "MCPForUnity.LocalHttpServer.LastStartedUtc";
-        internal const string LastLocalHttpServerPidArgsHash = "MCPForUnity.LocalHttpServer.LastPidArgsHash";
-        internal const string LastLocalHttpServerPidFilePath = "MCPForUnity.LocalHttpServer.LastPidFilePath";
-        internal const string LastLocalHttpServerInstanceToken = "MCPForUnity.LocalHttpServer.LastInstanceToken";
+
+        // Local server ownership must never cross Unity project boundaries. These values
+        // identify a process that Stop Server is allowed to terminate.
+        private const string LastLocalHttpServerPidBase = "MCPForUnity.LocalHttpServer.LastPid";
+        private const string LastLocalHttpServerPortBase = "MCPForUnity.LocalHttpServer.LastPort";
+        private const string LastLocalHttpServerStartedUtcBase = "MCPForUnity.LocalHttpServer.LastStartedUtc";
+        private const string LastLocalHttpServerPidArgsHashBase = "MCPForUnity.LocalHttpServer.LastPidArgsHash";
+        private const string LastLocalHttpServerPidFilePathBase = "MCPForUnity.LocalHttpServer.LastPidFilePath";
+        private const string LastLocalHttpServerInstanceTokenBase = "MCPForUnity.LocalHttpServer.LastInstanceToken";
+
+        internal static string LastLocalHttpServerPid => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerPidBase);
+        internal static string LastLocalHttpServerPort => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerPortBase);
+        internal static string LastLocalHttpServerStartedUtc => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerStartedUtcBase);
+        internal static string LastLocalHttpServerPidArgsHash => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerPidArgsHashBase);
+        internal static string LastLocalHttpServerPidFilePath => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerPidFilePathBase);
+        internal static string LastLocalHttpServerInstanceToken => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LastLocalHttpServerInstanceTokenBase);
         internal const string DebugLogs = "MCPForUnity.DebugLogs";
         internal const string ValidationLevel = "MCPForUnity.ValidationLevel";
         internal const string UnitySocketPort = "MCPForUnity.UnitySocketPort";
@@ -23,7 +35,13 @@ namespace MCPForUnity.Editor.Constants
         internal const string ClaudeCliPathOverride = "MCPForUnity.ClaudeCliPath";
         internal const string ClientProjectDirOverride = "MCPForUnity.ClientProjectDir";
 
-        internal const string HttpBaseUrl = "MCPForUnity.HttpUrl";
+        // This does not assign a fixed port to a project. It keeps the URL/port chosen in
+        // the existing UI independent so another open project cannot overwrite that choice.
+        // The pre-v10.1.1 global key is kept only for diagnostics and regression tests.
+        // It is intentionally not used as a fallback because that would make every
+        // concurrently opened project inherit the same local port again.
+        internal const string LegacyHttpBaseUrl = "MCPForUnity.HttpUrl";
+        internal static string HttpBaseUrl => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LegacyHttpBaseUrl);
         internal const string HttpRemoteBaseUrl = "MCPForUnity.HttpRemoteUrl";
         internal const string SessionId = "MCPForUnity.SessionId";
         internal const string WebSocketUrlOverride = "MCPForUnity.WebSocketUrl";
@@ -66,7 +84,8 @@ namespace MCPForUnity.Editor.Constants
 
         internal const string ApiKey = "MCPForUnity.ApiKey";
 
-        internal const string AutoStartOnLoad = "MCPForUnity.AutoStartOnLoad";
+        internal const string LegacyAutoStartOnLoad = "MCPForUnity.AutoStartOnLoad";
+        internal static string AutoStartOnLoad => ProjectIdentityUtility.GetProjectScopedEditorPrefKey(LegacyAutoStartOnLoad);
         internal const string HttpServerLaunchConfirmed = "MCPForUnity.HttpServerLaunchConfirmed";
         internal const string BatchExecuteMaxCommands = "MCPForUnity.BatchExecute.MaxCommands";
         internal const string LogRecordEnabled = "MCPForUnity.LogRecordEnabled";
