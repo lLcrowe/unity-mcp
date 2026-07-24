@@ -453,7 +453,8 @@ namespace MCPForUnity.Editor.Clients
                 }
 
                 string toml = File.ReadAllText(path);
-                if (CodexConfigHelper.TryParseCodexServer(toml, out _, out var args, out var url))
+                string serverName = CodexConfigHelper.GetCurrentServerName();
+                if (CodexConfigHelper.TryParseCodexServer(toml, serverName, out _, out var args, out var url))
                 {
                     // Determine and set the configured transport type
                     if (!string.IsNullOrEmpty(url))

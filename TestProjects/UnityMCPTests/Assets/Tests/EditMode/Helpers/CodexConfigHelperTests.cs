@@ -37,6 +37,15 @@ namespace MCPForUnityTests.Editor.Helpers
             }
         }
 
+        private static string EnableLocalHttpTransport(int port)
+        {
+            EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, true);
+            EditorPrefs.SetString(EditorPrefKeys.HttpTransportScope, "local");
+            HttpEndpointUtility.SaveLocalBaseUrl($"http://127.0.0.1:{port}");
+            EditorConfigurationCache.Instance.Refresh();
+            return $"{CodexConfigHelper.LegacyServerName}{port}";
+        }
+
         /// <summary>
         /// Mock platform service for testing
         /// </summary>
@@ -61,6 +70,10 @@ namespace MCPForUnityTests.Editor.Helpers
         private bool _originalHttpTransport;
         private bool _hadDevForceRefresh;
         private bool _originalDevForceRefresh;
+        private bool _hadHttpBaseUrl;
+        private string _originalHttpBaseUrl;
+        private bool _hadHttpTransportScope;
+        private string _originalHttpTransportScope;
         private IPlatformService _originalPlatformService;
 
         [OneTimeSetUp]
@@ -72,6 +85,10 @@ namespace MCPForUnityTests.Editor.Helpers
             _originalHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
             _hadDevForceRefresh = EditorPrefs.HasKey(EditorPrefKeys.DevModeForceServerRefresh);
             _originalDevForceRefresh = EditorPrefs.GetBool(EditorPrefKeys.DevModeForceServerRefresh, false);
+            _hadHttpBaseUrl = EditorPrefs.HasKey(EditorPrefKeys.HttpBaseUrl);
+            _originalHttpBaseUrl = EditorPrefs.GetString(EditorPrefKeys.HttpBaseUrl, string.Empty);
+            _hadHttpTransportScope = EditorPrefs.HasKey(EditorPrefKeys.HttpTransportScope);
+            _originalHttpTransportScope = EditorPrefs.GetString(EditorPrefKeys.HttpTransportScope, "local");
             _originalPlatformService = MCPServiceLocator.Platform;
         }
 
@@ -137,6 +154,25 @@ namespace MCPForUnityTests.Editor.Helpers
             {
                 EditorPrefs.DeleteKey(EditorPrefKeys.DevModeForceServerRefresh);
             }
+
+            if (_hadHttpBaseUrl)
+            {
+                EditorPrefs.SetString(EditorPrefKeys.HttpBaseUrl, _originalHttpBaseUrl);
+            }
+            else
+            {
+                EditorPrefs.DeleteKey(EditorPrefKeys.HttpBaseUrl);
+            }
+
+            if (_hadHttpTransportScope)
+            {
+                EditorPrefs.SetString(EditorPrefKeys.HttpTransportScope, _originalHttpTransportScope);
+            }
+            else
+            {
+                EditorPrefs.DeleteKey(EditorPrefKeys.HttpTransportScope);
+            }
+            EditorConfigurationCache.Instance.Refresh();
 
         }
 
@@ -465,8 +501,7 @@ namespace MCPForUnityTests.Editor.Helpers
         {
             // This test verifies HTTP transport mode generates url field instead of command/args
 
-            // Force HTTP mode
-            EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, true);
+            string serverName = EnableLocalHttpTransport(58130);
 
             string uvPath = "C:\\Program Files\\uv\\uv.exe";
 
@@ -486,8 +521,9 @@ namespace MCPForUnityTests.Editor.Helpers
             Assert.IsInstanceOf<TomlTable>(mcpServersNode, "mcp_servers should be a table");
 
             var mcpServers = mcpServersNode as TomlTable;
-            Assert.IsTrue(mcpServers.TryGetNode("unityMCP", out var unityMcpNode), "mcp_servers should contain unityMCP");
-            Assert.IsInstanceOf<TomlTable>(unityMcpNode, "unityMCP should be a table");
+            Assert.IsTrue(mcpServers.TryGetNode(serverName, out var unityMcpNode), $"mcp_servers should contain {serverName}");
+            Assert.IsFalse(mcpServers.TryGetNode(CodexConfigHelper.LegacyServerName, out _), "local HTTP must not emit the machine-global legacy alias");
+            Assert.IsInstanceOf<TomlTable>(unityMcpNode, $"{serverName} should be a table");
 
             var unityMcp = unityMcpNode as TomlTable;
 
@@ -537,8 +573,7 @@ namespace MCPForUnityTests.Editor.Helpers
         {
             // This test verifies HTTP mode upsert generates url field
 
-            // Force HTTP mode
-            EditorPrefs.SetBool(EditorPrefKeys.UseHttpTransport, true);
+            string serverName = EnableLocalHttpTransport(58131);
 
             string existingToml = string.Join("\n", new[]
             {
@@ -567,8 +602,9 @@ namespace MCPForUnityTests.Editor.Helpers
             Assert.IsInstanceOf<TomlTable>(mcpServersNode, "mcp_servers should be a table");
 
             var mcpServers = mcpServersNode as TomlTable;
-            Assert.IsTrue(mcpServers.TryGetNode("unityMCP", out var unityMcpNode), "mcp_servers should contain unityMCP");
-            Assert.IsInstanceOf<TomlTable>(unityMcpNode, "unityMCP should be a table");
+            Assert.IsTrue(mcpServers.TryGetNode(serverName, out var unityMcpNode), $"mcp_servers should contain {serverName}");
+            Assert.IsFalse(mcpServers.TryGetNode(CodexConfigHelper.LegacyServerName, out _), "local HTTP upsert must not emit the machine-global legacy alias");
+            Assert.IsInstanceOf<TomlTable>(unityMcpNode, $"{serverName} should be a table");
 
             var unityMcp = unityMcpNode as TomlTable;
 
@@ -590,6 +626,70 @@ namespace MCPForUnityTests.Editor.Helpers
             // Verify command and args are NOT present in HTTP mode
             Assert.IsFalse(unityMcp.TryGetNode("command", out _), "HTTP mode should not contain command field");
             Assert.IsFalse(unityMcp.TryGetNode("args", out _), "HTTP mode should not contain args field");
+        }
+
+        [Test]
+        public void TryParseCodexServer_LocalHttp_UsesPortQualifiedServerName()
+        {
+            string serverName = EnableLocalHttpTransport(58132);
+            string toml = string.Join("\n", new[]
+            {
+                $"[mcp_servers.{serverName}]",
+                "url = \"http://127.0.0.1:58132/mcp\""
+            });
+
+            bool result = CodexConfigHelper.TryParseCodexServer(
+                toml,
+                serverName,
+                out string command,
+                out string[] args,
+                out string url);
+
+            Assert.IsTrue(result);
+            Assert.IsNull(command);
+            Assert.IsNull(args);
+            Assert.AreEqual("http://127.0.0.1:58132/mcp", url);
+            Assert.IsFalse(
+                CodexConfigHelper.TryParseCodexServer(toml, out _, out _, out _),
+                "the legacy parser must not silently claim a port-qualified entry");
+        }
+
+        [Test]
+        public void UpsertCodexServerBlock_LocalHttp_PreservesOtherPortsAndRemovesLegacyAlias()
+        {
+            string serverName = EnableLocalHttpTransport(58133);
+            string existingToml = string.Join("\n", new[]
+            {
+                "[mcp_servers.unityMCP]",
+                "url = \"http://127.0.0.1:58000/mcp\"",
+                "",
+                "[mcp_servers.unityMCP58131]",
+                "url = \"http://127.0.0.1:58131/mcp\"",
+                "",
+                "[mcp_servers.unityMCP58132]",
+                "url = \"http://127.0.0.1:58132/mcp\""
+            });
+
+            string result = CodexConfigHelper.UpsertCodexServerBlock(existingToml, "C:\\path\\to\\uv.exe");
+
+            TomlTable parsed;
+            using (var reader = new StringReader(result))
+            {
+                parsed = TOML.Parse(reader);
+            }
+
+            Assert.IsTrue(parsed.TryGetNode("mcp_servers", out var serversNode));
+            var servers = serversNode as TomlTable;
+            Assert.IsNotNull(servers);
+            Assert.IsTrue(servers.TryGetNode("unityMCP58131", out _));
+            Assert.IsTrue(servers.TryGetNode("unityMCP58132", out _));
+            Assert.IsTrue(servers.TryGetNode(serverName, out var currentNode));
+            Assert.IsFalse(servers.TryGetNode(CodexConfigHelper.LegacyServerName, out _));
+
+            var current = currentNode as TomlTable;
+            Assert.IsNotNull(current);
+            Assert.IsTrue(current.TryGetNode("url", out var urlNode));
+            Assert.AreEqual("http://127.0.0.1:58133/mcp", (urlNode as TomlString)?.Value);
         }
     }
 }

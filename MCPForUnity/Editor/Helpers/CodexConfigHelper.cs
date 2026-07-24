@@ -17,6 +17,30 @@ namespace MCPForUnity.Editor.Helpers
     /// </summary>
     public static class CodexConfigHelper
     {
+        public const string LegacyServerName = "unityMCP";
+
+        /// <summary>
+        /// Uses a port-qualified Codex server name for local HTTP transport so multiple
+        /// open Unity projects can coexist in Codex's machine-wide config. Stdio and
+        /// remote HTTP keep the legacy single-server name.
+        /// </summary>
+        public static string GetCurrentServerName()
+        {
+            bool useHttpTransport = EditorPrefs.GetBool(EditorPrefKeys.UseHttpTransport, true);
+            if (!useHttpTransport || HttpEndpointUtility.IsRemoteScope())
+            {
+                return LegacyServerName;
+            }
+
+            string httpUrl = HttpEndpointUtility.GetMcpRpcUrl();
+            if (Uri.TryCreate(httpUrl, UriKind.Absolute, out var uri) && uri.Port > 0)
+            {
+                return $"{LegacyServerName}{uri.Port}";
+            }
+
+            return LegacyServerName;
+        }
+
         private static void AddUvxModeFlags(TomlArray args)
         {
             if (args == null) return;
@@ -75,7 +99,7 @@ namespace MCPForUnity.Editor.Helpers
                 unityMCP["startup_timeout_sec"] = new TomlInteger { Value = 60 };
             }
 
-            mcpServers["unityMCP"] = unityMCP;
+            mcpServers[GetCurrentServerName()] = unityMCP;
             table["mcp_servers"] = mcpServers;
 
             using var writer = new StringWriter();
@@ -97,8 +121,16 @@ namespace MCPForUnity.Editor.Helpers
             }
             var mcpServers = root["mcp_servers"] as TomlTable;
 
-            // Create or update unityMCP table
-            mcpServers["unityMCP"] = CreateUnityMcpTable(uvPath);
+            // A local HTTP endpoint is registered under a port-qualified name. Remove
+            // the unsafe machine-global legacy alias during migration, while preserving
+            // every other port-qualified server already registered by another project.
+            string serverName = GetCurrentServerName();
+            if (!string.Equals(serverName, LegacyServerName, StringComparison.Ordinal)
+                && mcpServers.TryGetNode(LegacyServerName, out _))
+            {
+                mcpServers.Delete(LegacyServerName);
+            }
+            mcpServers[serverName] = CreateUnityMcpTable(uvPath);
 
             if (useHttpTransport)
             {
@@ -113,10 +145,20 @@ namespace MCPForUnity.Editor.Helpers
 
         public static bool TryParseCodexServer(string toml, out string command, out string[] args)
         {
-            return TryParseCodexServer(toml, out command, out args, out _);
+            return TryParseCodexServer(toml, LegacyServerName, out command, out args, out _);
         }
 
         public static bool TryParseCodexServer(string toml, out string command, out string[] args, out string url)
+        {
+            return TryParseCodexServer(toml, LegacyServerName, out command, out args, out url);
+        }
+
+        public static bool TryParseCodexServer(
+            string toml,
+            string serverName,
+            out string command,
+            out string[] args,
+            out string url)
         {
             command = null;
             args = null;
@@ -131,7 +173,8 @@ namespace MCPForUnity.Editor.Helpers
                 return false;
             }
 
-            if (!TryGetTable(servers, "unityMCP", out var unity))
+            if (string.IsNullOrWhiteSpace(serverName)
+                || !TryGetTable(servers, serverName, out var unity))
             {
                 return false;
             }
