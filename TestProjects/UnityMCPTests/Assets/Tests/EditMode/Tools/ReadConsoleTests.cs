@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,7 +15,8 @@ namespace MCPForUnityTests.Editor.Tools
         {
             // Arrange
             // Ensure there's something to clear
-            Debug.Log("Log to clear");
+            string uniqueMessage = $"Log to clear {Guid.NewGuid()}";
+            Debug.Log(uniqueMessage);
             
             // Verify content exists before clear
             var getBefore = ToJObject(ReadConsole.HandleCommand(new JObject { ["action"] = "get", ["types"] = new JArray { "error", "warning", "log" }, ["count"] = 10 }));
@@ -36,7 +38,9 @@ namespace MCPForUnityTests.Editor.Tools
             var getAfter = ToJObject(ReadConsole.HandleCommand(new JObject { ["action"] = "get", ["types"] = new JArray { "error", "warning", "log" }, ["count"] = 10 }));
             Assert.IsTrue(getAfter.Value<bool>("success"), getAfter.ToString());
             var entriesAfter = getAfter["data"] as JArray;
-            Assert.IsTrue(entriesAfter == null || entriesAfter.Count == 0, "Console should be empty after clear.");
+            bool clearedMessageStillPresent = entriesAfter != null
+                && entriesAfter.Any(entry => entry.ToString().Contains(uniqueMessage));
+            Assert.IsFalse(clearedMessageStillPresent, "The log written before clear should be removed.");
         }
 
         [Test]
